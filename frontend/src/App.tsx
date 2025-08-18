@@ -1,10 +1,17 @@
-import { Button } from "./components/ui/button";
+import { ThemeProvider } from "next-themes";
+import { AppContent } from "./AppContent";
+import { Toaster } from "./components/ui/sonner";
 
 function App() {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center">
-      <Button></Button>
-    </div>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      storageKey="ui-theme"
+    >
+      <AppContent />
+      <Toaster richColors style={{ fontFamily: "inherit" }} />
+    </ThemeProvider>
   );
 }
 
