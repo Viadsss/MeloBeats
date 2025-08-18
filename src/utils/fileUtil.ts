@@ -21,7 +21,7 @@ export const deleteFile = async (filePath: string): Promise<void> => {
       } else {
         // If it's a file, delete it normally
         fs.unlinkSync(filePath);
-        console.log(`🗑️ Deleted file: ${path.basename(filePath)}`);
+        console.log(`🗑️  Deleted file: ${path.basename(filePath)}`);
       }
     }
   } catch (error) {

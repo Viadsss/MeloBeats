@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { conversionController } from "#controllers/conversionController.js";
 import { handleValidationErrors } from "#middlewares/validation.js";
+import { conversionLimiter, downloadLimiter } from "#middlewares/limiter.js";
 
 const router: Router = Router();
 
 // Start conversion
 router.post(
   "/",
+  conversionLimiter,
   conversionController.convertValidation,
   handleValidationErrors,
   conversionController.convert.bind(conversionController),
@@ -23,6 +25,7 @@ router.get(
 // Download converted file
 router.get(
   "/:conversionId/download",
+  downloadLimiter,
   conversionController.conversionIdValidation,
   handleValidationErrors,
   conversionController.download.bind(conversionController),

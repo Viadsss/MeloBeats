@@ -4,7 +4,7 @@ import conversionRoutes from "./conversion.js";
 import type { Application, Request, Response } from "express";
 
 export const setupRoutes = (app: Application): void => {
-  app.use("/api/info", infoRoutes);
+  // app.use("/api/info", infoRoutes);
   app.use("/api/convert", conversionRoutes);
 
   // Root endpoint
