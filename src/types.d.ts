@@ -20,6 +20,7 @@ export interface ConversionData {
   status: "processing" | "completed" | "failed";
   title: string;
   filename: string;
+  stripedFileName: string;
   progress: number;
   createdAt: Date;
   completedAt?: Date;

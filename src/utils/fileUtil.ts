@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { config } from "#config.js";
+import sanitize from "sanitize-filename";
 
 export const initializeDirectories = (): void => {
   if (!fs.existsSync(config.downloadsDir)) {
@@ -100,8 +101,6 @@ export const cleanupTempDirectory = async (tempDir: string): Promise<void> => {
 };
 
 export const sanitizeFilename = (title: string): string => {
-  return title
-    .replace(/[^\w\s-]/gi, "")
-    .replace(/\s+/g, "_")
-    .substring(0, 100); // Limit filename length
+  const cleaned = sanitize(title, { replacement: "_" });
+  return cleaned || "untitled";
 };

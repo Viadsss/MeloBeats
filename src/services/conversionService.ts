@@ -32,6 +32,7 @@ class ConversionService {
     this.conversions.set(conversionId, {
       status: "processing",
       title: info.videoDetails.title,
+      stripedFileName: title,
       filename,
       progress: 0,
       createdAt: new Date(),
@@ -61,6 +62,7 @@ class ConversionService {
       status: "processing",
       title: playlist.title,
       filename,
+      stripedFileName: title,
       progress: 0,
       createdAt: new Date(),
       isPlaylist: true,
@@ -90,6 +92,7 @@ class ConversionService {
       status: "processing",
       title: playlistInfo.name,
       filename,
+      stripedFileName: title,
       progress: 0,
       createdAt: new Date(),
       isPlaylist: true,
