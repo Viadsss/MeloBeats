@@ -9,7 +9,6 @@ export const config = {
   cleanupInterval: 5 * 60 * 1000, // 5 minutes
   maxFileAge: 30 * 60 * 1000, // 30 minutes
   defaultBitrate: 128 satisfies BitRateOptions as BitRateOptions,
-  validQualities: ["highestaudio", "lowestaudio"] as const,
 };
 
 // Initialize FFmpeg

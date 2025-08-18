@@ -1,13 +1,20 @@
 import type { Request, Response } from "express";
-import type { ConversionData, BitRateOptions } from "#types.js";
+import type { BitRateOptions } from "#types.js";
 import { conversionService } from "#services/conversionService.js";
+import { spotifyService } from "#services/spotifyService.js";
 import { deleteFile } from "#utils/fileUtil.js";
 import { config } from "#config.js";
 import { ERROR_MESSAGES, VALIDATION_MESSAGES } from "#utils/constants.js";
 import path from "path";
 import fs from "fs";
 import { body, param } from "express-validator";
-import { isValidBitrate, isValidYouTubeURL } from "#utils/validateUtil.js";
+import {
+  isValidBitrate,
+  isValidYoutubePlaylistURL,
+  isValidYouTubeURL,
+  isValidSpotifyTrackURL,
+  isValidSpotifyPlaylistURL,
+} from "#utils/validateUtil.js";
 
 export interface ConvertRequest extends Request {
   body: {
@@ -28,8 +35,13 @@ export class ConversionController {
       .notEmpty()
       .withMessage(VALIDATION_MESSAGES.URL_REQUIRED)
       .custom((url) => {
-        if (!isValidYouTubeURL(url)) {
-          throw new Error(VALIDATION_MESSAGES.INVALID_YOUTUBE_URL);
+        const isYoutube =
+          isValidYouTubeURL(url) || isValidYoutubePlaylistURL(url);
+        const isSpotify =
+          isValidSpotifyTrackURL(url) || isValidSpotifyPlaylistURL(url);
+
+        if (!isYoutube && !isSpotify) {
+          throw new Error(VALIDATION_MESSAGES.INVALID_URL);
         }
         return true;
       }),
@@ -56,11 +68,36 @@ export class ConversionController {
     try {
       const { url, bitrate = config.defaultBitrate } = req.body;
 
-      const result = await conversionService.startConversion(
-        url,
-        "highestaudio",
-        bitrate,
-      );
+      // Determine platform and conversion type
+      const isYoutubePlaylist = isValidYoutubePlaylistURL(url);
+      const isYoutubeSingle = isValidYouTubeURL(url);
+      const isSpotifyPlaylist = isValidSpotifyPlaylistURL(url);
+      const isSpotifySingle = isValidSpotifyTrackURL(url);
+
+      let result;
+
+      if (isYoutubePlaylist) {
+        result = await conversionService.startPlaylistConversion(url, bitrate);
+      } else if (isYoutubeSingle) {
+        result = await conversionService.startConversion(url, bitrate);
+      } else if (isSpotifyPlaylist) {
+        // Get Spotify playlist info and convert each track
+        const playlistInfo = await spotifyService.getPlaylistInfo(url);
+        result = await conversionService.startSpotifyPlaylistConversion(
+          playlistInfo,
+          bitrate,
+        );
+      } else if (isSpotifySingle) {
+        // Get Spotify track info, search on YouTube, then convert
+        const trackInfo = await spotifyService.getTrackInfo(url);
+        const youtubeVideo = await spotifyService.searchOnYoutube(trackInfo);
+        result = await conversionService.startConversion(
+          youtubeVideo.url,
+          bitrate,
+        );
+      } else {
+        throw new Error("Unsupported URL format");
+      }
 
       res.json({
         success: true,
@@ -71,7 +108,12 @@ export class ConversionController {
       console.error("Error starting conversion:", error.message);
       res.status(500).json({
         success: false,
-        error: ERROR_MESSAGES.CONVERSION_START_FAILED,
+        error:
+          error.message === "Failed to retrieve track information" ||
+          error.message === "Failed to retrieve playlist information" ||
+          error.message === "Failed to search on YouTube"
+            ? error.message
+            : ERROR_MESSAGES.CONVERSION_START_FAILED,
       });
     }
   }
@@ -120,6 +162,11 @@ export class ConversionController {
         success: false,
         error: ERROR_MESSAGES.FILE_NOT_FOUND,
       });
+    }
+
+    // Set appropriate content type for ZIP files
+    if (conversion.isPlaylist && conversion.filename.endsWith(".zip")) {
+      res.setHeader("Content-Type", "application/zip");
     }
 
     res.download(filePath, conversion.filename, (err) => {

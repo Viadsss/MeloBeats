@@ -120,13 +120,11 @@ app.post(
 
       const info = await ytdl.getInfo(url);
       const videoDetails: VideoInfo = {
+        url: info.videoDetails.video_url,
         title: info.videoDetails.title,
-        duration: info.videoDetails.lengthSeconds,
+        duration: Number(info.videoDetails.lengthSeconds),
         thumbnail: info.videoDetails.thumbnails[0]?.url || undefined,
         author: info.videoDetails.author.name,
-        viewCount: info.videoDetails.viewCount,
-        description:
-          info.videoDetails.description?.substring(0, 200) || undefined,
       };
 
       res.json({ success: true, data: videoDetails });
@@ -167,7 +165,7 @@ app.post(
       });
 
       // Start conversion asynchronously
-      convertVideo(url, outputPath, conversionId, "highestaudio", bitrate);
+      convertVideo(url, outputPath, conversionId, bitrate);
 
       res.json({
         success: true,
@@ -283,13 +281,12 @@ async function convertVideo(
   url: string,
   outputPath: string,
   conversionId: string,
-  quality: string,
   bitrate: BitRateOptions,
 ): Promise<void> {
   try {
     const stream = ytdl(url, {
       filter: "audioonly",
-      quality: quality as any,
+      quality: "highestaudio",
     });
 
     await new Promise<void>((resolve, reject) => {

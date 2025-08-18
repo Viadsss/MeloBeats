@@ -1,17 +1,23 @@
 import ytdl from "@distube/ytdl-core";
+import ytpl from "ytpl";
 import ffmpeg from "fluent-ffmpeg";
+import archiver from "archiver";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
+import fs from "fs";
 import type { ConversionData, BitRateOptions } from "#types.js";
 import { config } from "#config.js";
-import { sanitizeFilename } from "#utils/fileUtil.js";
+import {
+  sanitizeFilename,
+  deleteFile,
+  cleanupTempDirectory,
+} from "#utils/fileUtil.js";
 
 class ConversionService {
   private conversions = new Map<string, ConversionData>();
 
   async startConversion(
     url: string,
-    quality = "highestaudio",
     bitrate: BitRateOptions = 128,
   ): Promise<{ conversionId: string; title: string }> {
     const info = await ytdl.getInfo(url);
@@ -27,14 +33,46 @@ class ConversionService {
       filename,
       progress: 0,
       createdAt: new Date(),
+      isPlaylist: false,
     });
 
     // Start conversion asynchronously
-    this.convertVideo(url, outputPath, conversionId, quality, bitrate);
+    this.convertVideo(url, outputPath, conversionId, bitrate);
 
     return {
       conversionId,
       title: info.videoDetails.title,
+    };
+  }
+
+  async startPlaylistConversion(
+    playlistUrl: string,
+    bitrate: BitRateOptions = 128,
+  ): Promise<{ conversionId: string; title: string; totalTracks: number }> {
+    const playlist = await ytpl(playlistUrl);
+    const conversionId = uuidv4();
+
+    const title = sanitizeFilename(playlist.title);
+    const filename = `${title}_${conversionId}.zip`;
+
+    this.conversions.set(conversionId, {
+      status: "processing",
+      title: playlist.title,
+      filename,
+      progress: 0,
+      createdAt: new Date(),
+      isPlaylist: true,
+      totalTracks: playlist.items.length,
+      processedTracks: 0,
+    });
+
+    // Start playlist conversion asynchronously
+    this.convertPlaylist(playlist, conversionId, bitrate);
+
+    return {
+      conversionId,
+      title: playlist.title,
+      totalTracks: playlist.items.length,
     };
   }
 
@@ -67,13 +105,12 @@ class ConversionService {
     url: string,
     outputPath: string,
     conversionId: string,
-    quality: string,
     bitrate: BitRateOptions,
   ): Promise<void> {
     try {
       const stream = ytdl(url, {
         filter: "audioonly",
-        quality: quality as any,
+        quality: "highestaudio",
       });
 
       await new Promise<void>((resolve, reject) => {
@@ -119,6 +156,150 @@ class ConversionService {
         this.conversions.set(conversionId, conversion);
       }
     }
+  }
+
+  private async convertPlaylist(
+    playlist: any,
+    conversionId: string,
+    bitrate: BitRateOptions,
+  ): Promise<void> {
+    const tempDir = path.join(config.downloadsDir, `temp_${conversionId}`);
+    const zipPath = path.join(
+      config.downloadsDir,
+      this.conversions.get(conversionId)!.filename,
+    );
+
+    try {
+      // Create temporary directory for individual MP3 files
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      const totalVideos = playlist.items.length;
+      let processedCount = 0;
+      const failedConversions: string[] = [];
+
+      // Process each video in the playlist
+      for (const item of playlist.items) {
+        try {
+          const videoTitle = sanitizeFilename(item.title);
+          const videoFilename = `${videoTitle}.mp3`;
+          const videoPath = path.join(tempDir, videoFilename);
+
+          // Convert individual video
+          await this.convertSingleVideoToFile(
+            item.shortUrl,
+            videoPath,
+            bitrate,
+          );
+
+          processedCount++;
+
+          // Update progress
+          const conversion = this.conversions.get(conversionId);
+          if (conversion) {
+            conversion.processedTracks = processedCount;
+            conversion.progress = Math.round(
+              (processedCount / totalVideos) * 90,
+            ); // Leave 10% for zipping
+            this.conversions.set(conversionId, conversion);
+          }
+
+          console.log(
+            `✅ Processed ${processedCount}/${totalVideos}: ${item.title}`,
+          );
+        } catch (error: any) {
+          console.error(`❌ Failed to convert: ${item.title}`, error.message);
+          failedConversions.push(item.title);
+        }
+      }
+
+      // Create ZIP file from all MP3s
+      await this.createZipFromDirectory(tempDir, zipPath);
+
+      // Update final status
+      const conversion = this.conversions.get(conversionId);
+      if (conversion) {
+        conversion.status = "completed";
+        conversion.progress = 100;
+        conversion.completedAt = new Date();
+        if (failedConversions.length > 0) {
+          conversion.error = `Failed to convert ${failedConversions.length} tracks: ${failedConversions.slice(0, 3).join(", ")}${failedConversions.length > 3 ? "..." : ""}`;
+        }
+        this.conversions.set(conversionId, conversion);
+      }
+
+      // Clean up temporary directory
+      await cleanupTempDirectory(tempDir);
+
+      console.log(
+        `✅ Playlist conversion completed: ${conversionId} (${processedCount}/${totalVideos} tracks)`,
+      );
+    } catch (error: any) {
+      console.error(
+        `❌ Playlist conversion ${conversionId} failed:`,
+        error.message,
+      );
+      const conversion = this.conversions.get(conversionId);
+      if (conversion) {
+        conversion.status = "failed";
+        conversion.error = error.message;
+        this.conversions.set(conversionId, conversion);
+      }
+
+      // Clean up on failure
+      await cleanupTempDirectory(tempDir);
+      await deleteFile(zipPath);
+    }
+  }
+
+  private async convertSingleVideoToFile(
+    url: string,
+    outputPath: string,
+    bitrate: BitRateOptions,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const stream = ytdl(url, {
+        filter: "audioonly",
+        quality: "highestaudio",
+      });
+
+      ffmpeg(stream)
+        .audioBitrate(bitrate)
+        .format("mp3")
+        .on("end", () => resolve())
+        .on("error", (err) => reject(err))
+        .save(outputPath);
+    });
+  }
+
+  private async createZipFromDirectory(
+    sourceDir: string,
+    zipPath: string,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const output = fs.createWriteStream(zipPath);
+      const archive = archiver("zip", { zlib: { level: 9 } });
+
+      output.on("close", () => {
+        console.log(`📦 ZIP created: ${archive.pointer()} total bytes`);
+        resolve();
+      });
+
+      archive.on("error", (err) => reject(err));
+      archive.pipe(output);
+
+      // Add all MP3 files from the temp directory
+      const files = fs.readdirSync(sourceDir);
+      files.forEach((file) => {
+        if (file.endsWith(".mp3")) {
+          const filePath = path.join(sourceDir, file);
+          archive.file(filePath, { name: file });
+        }
+      });
+
+      archive.finalize();
+    });
   }
 
   cleanupOldConversions(): void {

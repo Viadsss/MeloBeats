@@ -1,12 +1,19 @@
 import { Request } from "express";
 
 export interface VideoInfo {
+  url: string;
   title: string;
-  duration: string;
-  thumbnail?: string | undefined;
   author: string;
-  viewCount: string;
-  description?: string | undefined;
+  duration: number;
+  thumbnail?: string | undefined;
+}
+
+export interface PlaylistInfo {
+  url: string;
+  title: string;
+  itemCount: number;
+  thumbnail?: string | undefined;
+  videos: VideoInfo[];
 }
 
 export interface ConversionData {
@@ -17,6 +24,9 @@ export interface ConversionData {
   createdAt: Date;
   completedAt?: Date;
   error?: string;
+  isPlaylist?: boolean;
+  totalTracks?: number;
+  processedTracks?: number;
 }
 
 export interface VideoInfoRequest extends Request {
@@ -33,12 +43,3 @@ export interface ConvertRequest extends Request {
 }
 
 type BitRateOptions = 64 | 128 | 192 | 256 | 320;
-
-type VideoQuality =
-  | "144p"
-  | "240p"
-  | "360p"
-  | "480p"
-  | "720p"
-  | "1080p"
-  | "highest";

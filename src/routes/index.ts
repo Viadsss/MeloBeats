@@ -1,10 +1,10 @@
 import { conversionService } from "#services/conversionService.js";
-import videoRoutes from "./video.js";
+import infoRoutes from "./info.js";
 import conversionRoutes from "./conversion.js";
 import type { Application, Request, Response } from "express";
 
 export const setupRoutes = (app: Application): void => {
-  app.use("/api/video", videoRoutes);
+  app.use("/api/info", infoRoutes);
   app.use("/api/convert", conversionRoutes);
 
   // Root endpoint

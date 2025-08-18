@@ -1,7 +1,10 @@
 export const VALIDATION_MESSAGES = {
   URL_REQUIRED: "URL is required",
-  INVALID_YOUTUBE_URL: "Invalid YouTube URL",
-  INVALID_BITRATE: "Bitrate must be one of: 64, 128, 192, 256, 320",
+  INVALID_YOUTUBE_URL: "Invalid YouTube URL or playlist URL",
+  INVALID_YOUTUBE_PLAYLIST_URL: "Invalid YouTube playlist URL",
+  INVALID_URL: "Invalid URL. Only YouTube and Spotify URLs are supported",
+  INVALID_BITRATE:
+    "Invalid bitrate. Supported bitrates: 64, 128, 192, 256, 320",
   CONVERSION_ID_REQUIRED: "Conversion ID is required",
   INVALID_CONVERSION_ID: "Invalid conversion ID format",
 } as const;
