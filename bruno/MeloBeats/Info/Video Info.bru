@@ -1,0 +1,19 @@
+meta {
+  name: Video Info
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:3000/api/info/video
+  body: formUrlEncoded
+  auth: inherit
+}
+
+body:form-urlencoded {
+  url: https://www.youtube.com/watch?v=CTRchwjPKk8&list=RDCTRchwjPKk8&start_radio=1
+}
+
+settings {
+  encodeUrl: true
+}

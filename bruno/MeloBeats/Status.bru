@@ -1,0 +1,19 @@
+meta {
+  name: Status
+  type: http
+  seq: 5
+}
+
+get {
+  url: http://localhost:3000/api/convert/:id/status
+  body: none
+  auth: inherit
+}
+
+params:path {
+  id: b4107afa-d43f-4553-9daa-e340d5cc0242
+}
+
+settings {
+  encodeUrl: true
+}

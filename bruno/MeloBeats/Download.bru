@@ -1,0 +1,19 @@
+meta {
+  name: Download
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://localhost:3000/api/convert/:id/download
+  body: none
+  auth: inherit
+}
+
+params:path {
+  id: 38f997c1-c86a-422e-af8a-61b306559ba5
+}
+
+settings {
+  encodeUrl: true
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Convert
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:3000/api/convert
+  body: formUrlEncoded
+  auth: inherit
+}
+
+body:form-urlencoded {
+  url: https://www.youtube.com/watch?v=jIfogFtgV-o&list=PLjNlQ2vXx1xbt30X8TcUfNzw_akVISXEu
+}
+
+settings {
+  encodeUrl: true
+}

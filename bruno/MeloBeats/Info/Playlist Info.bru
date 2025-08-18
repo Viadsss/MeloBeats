@@ -1,0 +1,19 @@
+meta {
+  name: Playlist Info
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/api/info/playlist
+  body: formUrlEncoded
+  auth: inherit
+}
+
+body:form-urlencoded {
+  url: https://youtube.com/playlist?list=PLiSbGMQD1ilbwuoL2hceRcWXJuh7DOqW8&si=LfT12Ez0nDtapBWr
+}
+
+settings {
+  encodeUrl: true
+}
