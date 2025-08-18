@@ -18,4 +18,23 @@ export const ERROR_MESSAGES = {
   CONVERSION_START_FAILED: "Failed to start conversion",
   VIDEO_INFO_FAILED: "Failed to fetch video information",
   INTERNAL_ERROR: "Internal server error",
+
+  YOUTUBE_SEARCH_FAILED: "Failed to search on YouTube",
+
+  SPOTIFY_TRACK_INFO_FAILED: "Failed to retrieve track information",
+  SPOTIFY_PLAYLIST_INFO_FAILED: "Failed to retrieve playlist information",
+  SPOTIFY_NO_YOUTUBE_MATCH: "No corresponding video for Spotify track found",
+  SPOTIFY_SERVICE_UNAVAILABLE: "Spotify service is not available",
 } as const;
+
+export const isKnownUserError = (errorMessage: string): boolean => {
+  const knownUserErrors = [
+    ERROR_MESSAGES.SPOTIFY_TRACK_INFO_FAILED,
+    ERROR_MESSAGES.SPOTIFY_PLAYLIST_INFO_FAILED,
+    ERROR_MESSAGES.YOUTUBE_SEARCH_FAILED,
+    ERROR_MESSAGES.SPOTIFY_NO_YOUTUBE_MATCH,
+    ERROR_MESSAGES.SPOTIFY_SERVICE_UNAVAILABLE,
+  ];
+
+  return knownUserErrors.includes(errorMessage as any);
+};

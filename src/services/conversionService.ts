@@ -6,6 +6,8 @@ import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import fs from "fs";
 import type { ConversionData, BitRateOptions } from "#types.js";
+import type { SpotifyPlaylist } from "#services/spotifyService.js";
+import { spotifyService } from "#services/spotifyService.js";
 import { config } from "#config.js";
 import {
   sanitizeFilename,
@@ -73,6 +75,35 @@ class ConversionService {
       conversionId,
       title: playlist.title,
       totalTracks: playlist.items.length,
+    };
+  }
+
+  async startSpotifyPlaylistConversion(
+    playlistInfo: SpotifyPlaylist,
+    bitrate: BitRateOptions = 128,
+  ): Promise<{ conversionId: string; title: string; totalTracks: number }> {
+    const conversionId = uuidv4();
+    const title = sanitizeFilename(playlistInfo.name);
+    const filename = `${title}_${conversionId}.zip`;
+
+    this.conversions.set(conversionId, {
+      status: "processing",
+      title: playlistInfo.name,
+      filename,
+      progress: 0,
+      createdAt: new Date(),
+      isPlaylist: true,
+      totalTracks: playlistInfo.totalTracks,
+      processedTracks: 0,
+    });
+
+    // Start Spotify playlist conversion asynchronously
+    this.convertSpotifyPlaylist(playlistInfo, conversionId, bitrate);
+
+    return {
+      conversionId,
+      title: playlistInfo.name,
+      totalTracks: playlistInfo.totalTracks,
     };
   }
 
@@ -238,6 +269,110 @@ class ConversionService {
     } catch (error: any) {
       console.error(
         `❌ Playlist conversion ${conversionId} failed:`,
+        error.message,
+      );
+      const conversion = this.conversions.get(conversionId);
+      if (conversion) {
+        conversion.status = "failed";
+        conversion.error = error.message;
+        this.conversions.set(conversionId, conversion);
+      }
+
+      // Clean up on failure
+      await cleanupTempDirectory(tempDir);
+      await deleteFile(zipPath);
+    }
+  }
+
+  // NEW METHOD: Handle Spotify playlist conversion
+  private async convertSpotifyPlaylist(
+    playlistInfo: SpotifyPlaylist,
+    conversionId: string,
+    bitrate: BitRateOptions,
+  ): Promise<void> {
+    const tempDir = path.join(config.downloadsDir, `temp_${conversionId}`);
+    const zipPath = path.join(
+      config.downloadsDir,
+      this.conversions.get(conversionId)!.filename,
+    );
+
+    try {
+      // Create temporary directory for individual MP3 files
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      const totalTracks = playlistInfo.tracks.length;
+      let processedCount = 0;
+      const failedConversions: string[] = [];
+
+      // Process each track in the Spotify playlist
+      for (const track of playlistInfo.tracks) {
+        try {
+          // Search for the track on YouTube
+          const youtubeVideo = await spotifyService.searchOnYoutube(track);
+
+          const trackTitle = sanitizeFilename(
+            `${track.artists.join(", ")} - ${track.name}`,
+          );
+          const trackFilename = `${trackTitle}.mp3`;
+          const trackPath = path.join(tempDir, trackFilename);
+
+          // Convert the YouTube video to MP3
+          await this.convertSingleVideoToFile(
+            youtubeVideo.url,
+            trackPath,
+            bitrate,
+          );
+
+          processedCount++;
+
+          // Update progress
+          const conversion = this.conversions.get(conversionId);
+          if (conversion) {
+            conversion.processedTracks = processedCount;
+            conversion.progress = Math.round(
+              (processedCount / totalTracks) * 90,
+            ); // Leave 10% for zipping
+            this.conversions.set(conversionId, conversion);
+          }
+
+          console.log(
+            `✅ Processed ${processedCount}/${totalTracks}: ${track.artists.join(", ")} - ${track.name}`,
+          );
+        } catch (error: any) {
+          console.error(
+            `❌ Failed to convert: ${track.artists.join(", ")} - ${track.name}`,
+            error.message,
+          );
+          failedConversions.push(`${track.artists.join(", ")} - ${track.name}`);
+        }
+      }
+
+      // Create ZIP file from all MP3s
+      await this.createZipFromDirectory(tempDir, zipPath);
+
+      // Update final status
+      const conversion = this.conversions.get(conversionId);
+      if (conversion) {
+        conversion.status = "completed";
+        conversion.progress = 100;
+        conversion.completedAt = new Date();
+        if (failedConversions.length > 0) {
+          conversion.error = `Failed to convert ${failedConversions.length} tracks: ${failedConversions.slice(0, 3).join(", ")}${failedConversions.length > 3 ? "..." : ""}`;
+        }
+        this.conversions.set(conversionId, conversion);
+      }
+
+      // Clean up temporary directory
+      await cleanupTempDirectory(tempDir);
+
+      console.log(
+        `✅ Spotify playlist conversion completed: ${conversionId} (${processedCount}/${totalTracks} tracks)`,
+      );
+    } catch (error: any) {
+      console.error(
+        `❌ Spotify playlist conversion ${conversionId} failed:`,
         error.message,
       );
       const conversion = this.conversions.get(conversionId);

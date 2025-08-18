@@ -4,7 +4,11 @@ import { conversionService } from "#services/conversionService.js";
 import { spotifyService } from "#services/spotifyService.js";
 import { deleteFile } from "#utils/fileUtil.js";
 import { config } from "#config.js";
-import { ERROR_MESSAGES, VALIDATION_MESSAGES } from "#utils/constants.js";
+import {
+  ERROR_MESSAGES,
+  isKnownUserError,
+  VALIDATION_MESSAGES,
+} from "#utils/constants.js";
 import path from "path";
 import fs from "fs";
 import { body, param } from "express-validator";
@@ -68,27 +72,22 @@ export class ConversionController {
     try {
       const { url, bitrate = config.defaultBitrate } = req.body;
 
-      // Determine platform and conversion type
-      const isYoutubePlaylist = isValidYoutubePlaylistURL(url);
-      const isYoutubeSingle = isValidYouTubeURL(url);
-      const isSpotifyPlaylist = isValidSpotifyPlaylistURL(url);
-      const isSpotifySingle = isValidSpotifyTrackURL(url);
-
       let result;
 
-      if (isYoutubePlaylist) {
+      // Handle YouTube URLs
+      if (isValidYoutubePlaylistURL(url)) {
         result = await conversionService.startPlaylistConversion(url, bitrate);
-      } else if (isYoutubeSingle) {
+      } else if (isValidYouTubeURL(url)) {
         result = await conversionService.startConversion(url, bitrate);
-      } else if (isSpotifyPlaylist) {
-        // Get Spotify playlist info and convert each track
+      }
+      // Handle Spotify URLs
+      else if (isValidSpotifyPlaylistURL(url)) {
         const playlistInfo = await spotifyService.getPlaylistInfo(url);
         result = await conversionService.startSpotifyPlaylistConversion(
           playlistInfo,
           bitrate,
         );
-      } else if (isSpotifySingle) {
-        // Get Spotify track info, search on YouTube, then convert
+      } else if (isValidSpotifyTrackURL(url)) {
         const trackInfo = await spotifyService.getTrackInfo(url);
         const youtubeVideo = await spotifyService.searchOnYoutube(trackInfo);
         result = await conversionService.startConversion(
@@ -96,6 +95,7 @@ export class ConversionController {
           bitrate,
         );
       } else {
+        // This should never happen if validation is working correctly
         throw new Error("Unsupported URL format");
       }
 
@@ -108,12 +108,9 @@ export class ConversionController {
       console.error("Error starting conversion:", error.message);
       res.status(500).json({
         success: false,
-        error:
-          error.message === "Failed to retrieve track information" ||
-          error.message === "Failed to retrieve playlist information" ||
-          error.message === "Failed to search on YouTube"
-            ? error.message
-            : ERROR_MESSAGES.CONVERSION_START_FAILED,
+        error: isKnownUserError(error.message)
+          ? error.message
+          : ERROR_MESSAGES.CONVERSION_START_FAILED,
       });
     }
   }

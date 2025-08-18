@@ -1,4 +1,5 @@
 import type { VideoInfo } from "#types.js";
+import { ERROR_MESSAGES } from "#utils/constants.js";
 import SpotifyWebApi from "spotify-web-api-node";
 import yts from "yt-search";
 
@@ -45,7 +46,7 @@ class SpotifyService {
         spotifyId: track.body.id,
       };
     } catch {
-      throw new Error("Failed to retrieve track information");
+      throw new Error(ERROR_MESSAGES.SPOTIFY_TRACK_INFO_FAILED);
     }
   }
 
@@ -72,7 +73,7 @@ class SpotifyService {
         totalTracks: tracks.length,
       };
     } catch {
-      throw new Error("Failed to retrieve playlist information");
+      throw new Error(ERROR_MESSAGES.SPOTIFY_PLAYLIST_INFO_FAILED);
     }
   }
 
@@ -95,7 +96,7 @@ class SpotifyService {
 
       return youtubeVideo;
     } catch {
-      throw new Error("Failed to search on YouTube");
+      throw new Error(ERROR_MESSAGES.YOUTUBE_SEARCH_FAILED);
     }
   }
 
