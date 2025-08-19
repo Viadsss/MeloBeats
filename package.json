@@ -1,0 +1,19 @@
+{
+  "name": "melobeats",
+  "version": "1.0.0",
+  "description": "A web application for converting YouTube videos and Spotify tracks to MP3.",
+  "main": "index.js",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c green,blue \"npm --prefix frontend run dev\" \"npm --prefix backend run dev\"",
+    "build": "concurrently -n frontend,backend -c green,blue \"npm --prefix frontend run build\" \"npm --prefix backend run build\"",
+    "preview": "concurrently -n frontend,backend -c green,blue \"npm --prefix frontend run preview\" \"npm --prefix backend run start\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.14.0",
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}
