@@ -6,12 +6,14 @@ import yts from "yt-search";
 export interface SpotifyTrack {
   name: string;
   artists: string[];
+  thumbnail: string | undefined;
   duration: number;
   spotifyId: string;
 }
 
 export interface SpotifyPlaylist {
   name: string;
+  thumbnail: string | undefined;
   tracks: SpotifyTrack[];
   totalTracks: number;
 }
@@ -41,6 +43,7 @@ class SpotifyService {
 
       return {
         name: track.body.name,
+        thumbnail: track.body.album.images[0]?.url,
         artists: track.body.artists.map((artist) => artist.name),
         duration: track.body.duration_ms,
         spotifyId: track.body.id,
@@ -64,10 +67,12 @@ class SpotifyService {
           name: item.track.name,
           artists: item.track.artists.map((a) => a.name),
           duration: item.track.duration_ms,
+          thumbnail: item.track.album.images[0]?.url,
           spotifyId: item.track.id,
         }));
 
       return {
+        thumbnail: playlist.body.images[0]?.url,
         name: playlist.body.name,
         tracks,
         totalTracks: tracks.length,

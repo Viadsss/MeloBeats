@@ -1,21 +1,15 @@
 import { Router } from "express";
 import { videoInfoController } from "#controllers/videoInfoController.js";
 import { handleValidationErrors } from "#middlewares/validation.js";
+import { infoController } from "#controllers/infoController.js";
 
 const router: Router = Router();
 
 router.post(
-  "/video",
-  videoInfoController.videoInfoValidation,
+  "/",
+  infoController.infoValidation,
   handleValidationErrors,
-  videoInfoController.getVideoInfo.bind(videoInfoController),
-);
-
-router.post(
-  "/playlist",
-  videoInfoController.playlistInfoValidation,
-  handleValidationErrors,
-  videoInfoController.getPlaylistInfo.bind(videoInfoController),
+  infoController.getInfo.bind(infoController),
 );
 
 export default router;

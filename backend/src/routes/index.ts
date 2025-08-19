@@ -4,8 +4,10 @@ import conversionRoutes from "./conversion.js";
 import type { Application, Request, Response } from "express";
 
 export const setupRoutes = (app: Application): void => {
-  // app.use("/api/info", infoRoutes);
+  app.use("/api/info", infoRoutes);
   app.use("/api/convert", conversionRoutes);
+
+  app.get("/api/info", (req: Request, res: Response) => {});
 
   // Root endpoint
   app.get("/", (req: Request, res: Response) => {

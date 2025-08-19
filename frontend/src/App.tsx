@@ -1,17 +1,12 @@
-import { ThemeProvider } from "next-themes";
-import { AppContent } from "./AppContent";
-import { Toaster } from "./components/ui/sonner";
+import { Main } from "./components/app/Main";
+import { NavBar } from "./components/app/NavBar";
 
 function App() {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      storageKey="ui-theme"
-    >
-      <AppContent />
-      <Toaster richColors style={{ fontFamily: "inherit" }} />
-    </ThemeProvider>
+    <div className="h-screen">
+      <NavBar />
+      <Main />
+    </div>
   );
 }
 

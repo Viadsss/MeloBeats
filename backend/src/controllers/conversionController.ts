@@ -166,7 +166,7 @@ export class ConversionController {
       res.setHeader("Content-Type", "application/zip");
     }
 
-    res.download(filePath, conversion.filename, (err) => {
+    res.download(filePath, conversion.stripedFileName, (err) => {
       if (err) {
         console.error("Download error:", err);
         res.status(500).json({

@@ -1,17 +1,17 @@
 meta {
-  name: Video Info
+  name: Info
   type: http
-  seq: 2
+  seq: 7
 }
 
 post {
-  url: http://localhost:3000/api/info/video
+  url: http://localhost:3000/api/info
   body: formUrlEncoded
   auth: inherit
 }
 
 body:form-urlencoded {
-  url: https://www.youtube.com/watch?v=gWCnKoEgfP0
+  url: https://www.youtube.com/watch?app=desktop&v=gWCnKoEgfP0&t=7s
 }
 
 settings {
