@@ -1,11 +1,11 @@
-interface InitialConvert {
+export interface InitialConvert {
   success: boolean;
   conversionId: string;
   title: string;
   message: string;
 }
 
-type BitRateOptions = 64 | 128 | 192 | 256 | 320;
+export type BitRateOptions = 64 | 128 | 192 | 256 | 320;
 
 export interface ConversionData {
   status: "processing" | "completed" | "failed";
@@ -52,14 +52,14 @@ export interface PlaylistInfo {
   videos: VideoInfo[];
 }
 
-type InfoOptions =
+export type InfoOptions =
   | "youtube_single"
   | "youtube_playlist"
   | "spotify_single"
   | "spotify_playlist"
   | undefined;
 
-type Info =
+export type Info =
   | SpotifyTrack
   | SpotifyPlaylist
   | VideoInfo
