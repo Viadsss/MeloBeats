@@ -14,7 +14,11 @@ export const NavButton = ({
   return (
     <NavLink to={to} className={className}>
       {({ isActive }) => (
-        <Button className="w-full" variant={isActive ? "default" : "ghost"} {...props}>
+        <Button
+          className="w-full"
+          variant={isActive ? "default" : "ghost"}
+          {...props}
+        >
           {children}
         </Button>
       )}
