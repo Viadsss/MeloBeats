@@ -123,7 +123,7 @@ export class ConversionController {
     if (!conversion) {
       return res.status(404).json({
         success: false,
-        error: ERROR_MESSAGES.CONVERSION_NOT_FOUND,
+        message: ERROR_MESSAGES.CONVERSION_NOT_FOUND,
       });
     }
 
@@ -141,14 +141,14 @@ export class ConversionController {
     if (!conversion) {
       return res.status(404).json({
         success: false,
-        error: ERROR_MESSAGES.CONVERSION_NOT_FOUND,
+        message: ERROR_MESSAGES.CONVERSION_NOT_FOUND,
       });
     }
 
     if (conversion.status !== "completed") {
       return res.status(400).json({
         success: false,
-        error: ERROR_MESSAGES.CONVERSION_NOT_COMPLETED,
+        message: ERROR_MESSAGES.CONVERSION_NOT_COMPLETED,
       });
     }
 
@@ -157,7 +157,7 @@ export class ConversionController {
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({
         success: false,
-        error: ERROR_MESSAGES.FILE_NOT_FOUND,
+        message: ERROR_MESSAGES.FILE_NOT_FOUND,
       });
     }
 
@@ -185,7 +185,7 @@ export class ConversionController {
     if (!conversion) {
       return res.status(404).json({
         success: false,
-        error: ERROR_MESSAGES.CONVERSION_NOT_FOUND,
+        message: ERROR_MESSAGES.CONVERSION_NOT_FOUND,
       });
     }
 

@@ -39,7 +39,7 @@ export const setupRoutes = (app: Application): void => {
   app.use((req: Request, res: Response) => {
     res.status(404).json({
       success: false,
-      error: "Endpoint not found",
+      message: "Endpoint not found",
     });
   });
 };

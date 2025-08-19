@@ -51,7 +51,7 @@ export class VideoInfoController {
       console.error("Error fetching video info:", error.message);
       res.status(500).json({
         success: false,
-        error: ERROR_MESSAGES.VIDEO_INFO_FAILED,
+        message: ERROR_MESSAGES.VIDEO_INFO_FAILED,
       });
     }
   }

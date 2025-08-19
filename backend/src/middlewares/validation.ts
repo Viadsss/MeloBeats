@@ -10,9 +10,9 @@ export const handleValidationErrors = (
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
-    return res.status(400).json({
+    return res.status(419).json({
       success: false,
-      error: ERROR_MESSAGES.VALIDATION_FAILED,
+      message: ERROR_MESSAGES.VALIDATION_FAILED,
       details: errors.array().map((err) => ({
         field: err.type === "field" ? err.path : "unknown",
         message: err.msg,

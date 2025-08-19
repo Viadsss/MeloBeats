@@ -44,6 +44,16 @@ process.on("SIGINT", () => {
   process.exit(0);
 });
 
+process.on("uncaughtException", (error) => {
+  console.error("❌ Uncaught Exception:", error);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
+  process.exit(1);
+});
+
 app.listen(config.port, () => {
   console.log(`🚀 YouTube to MP3 API server running on port ${config.port}`);
   console.log(`📊 Health check: http://localhost:${config.port}/api/health`);
