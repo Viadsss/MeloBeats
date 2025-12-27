@@ -61,35 +61,51 @@ class ConversionService {
     playlistUrl: string,
     bitrate: BitRateOptions = 128,
   ): Promise<{ conversionId: string; title: string; totalTracks: number }> {
-    // Get playlist info using yt-dlp
-    const playlistInfo = await this.ytDlp.getVideoInfo(playlistUrl);
-    const conversionId = uuidv4();
+    try {
+      // Get playlist info using yt-dlp with flat-playlist to get all video IDs
+      const playlistJsonOutput = await this.ytDlp.execPromise([
+        playlistUrl,
+        "--flat-playlist",
+        "--dump-single-json",
+        "--no-warnings",
+      ]);
 
-    const title = sanitizeFilename(playlistInfo.title || "playlist");
-    const filename = `${title}_${conversionId}.zip`;
+      // Parse the JSON output
+      const playlistData = JSON.parse(playlistJsonOutput);
 
-    const totalTracks = playlistInfo.entries?.length || 0;
+      const conversionId = uuidv4();
+      const title = sanitizeFilename(playlistData.title || "playlist");
+      const filename = `${title}_${conversionId}.zip`;
+      const totalTracks = playlistData.entries?.length || 0;
 
-    this.conversions.set(conversionId, {
-      status: "processing",
-      title: playlistInfo.title || "Playlist",
-      filename,
-      stripedFileName: title,
-      progress: 0,
-      createdAt: new Date(),
-      isPlaylist: true,
-      totalTracks,
-      processedTracks: 0,
-    });
+      if (totalTracks === 0) {
+        throw new Error("No videos found in playlist");
+      }
 
-    // Start playlist conversion asynchronously
-    this.convertPlaylist(playlistInfo, conversionId, bitrate);
+      this.conversions.set(conversionId, {
+        status: "processing",
+        title: playlistData.title || "Playlist",
+        filename,
+        stripedFileName: title,
+        progress: 0,
+        createdAt: new Date(),
+        isPlaylist: true,
+        totalTracks,
+        processedTracks: 0,
+      });
 
-    return {
-      conversionId,
-      title: playlistInfo.title || "Playlist",
-      totalTracks,
-    };
+      // Start playlist conversion asynchronously
+      this.convertPlaylist(playlistData, conversionId, bitrate);
+
+      return {
+        conversionId,
+        title: playlistData.title || "Playlist",
+        totalTracks,
+      };
+    } catch (error: any) {
+      console.error("❌ Failed to get playlist info:", error.message);
+      throw error;
+    }
   }
 
   async startSpotifyPlaylistConversion(
@@ -236,6 +252,11 @@ class ConversionService {
       }
 
       const entries = playlistInfo.entries || [];
+
+      if (!Array.isArray(entries) || entries.length === 0) {
+        throw new Error("No videos found in playlist");
+      }
+
       const totalVideos = entries.length;
       let processedCount = 0;
       const failedConversions: string[] = [];
@@ -243,16 +264,18 @@ class ConversionService {
       // Process each video in the playlist
       for (const entry of entries) {
         try {
-          const videoTitle = sanitizeFilename(entry.title);
+          const videoTitle = sanitizeFilename(
+            entry.title || entry.id || "video",
+          );
           const videoFilename = `${videoTitle}.mp3`;
           const videoPath = path.join(tempDir, videoFilename);
 
+          // Build full YouTube URL from video ID
+          const videoUrl =
+            entry.url || `https://www.youtube.com/watch?v=${entry.id}`;
+
           // Convert individual video
-          await this.convertSingleVideoToFile(
-            entry.url || entry.webpage_url,
-            videoPath,
-            bitrate,
-          );
+          await this.convertSingleVideoToFile(videoUrl, videoPath, bitrate);
 
           processedCount++;
 
@@ -267,11 +290,14 @@ class ConversionService {
           }
 
           console.log(
-            `✅ Processed ${processedCount}/${totalVideos}: ${entry.title}`,
+            `✅ Processed ${processedCount}/${totalVideos}: ${entry.title || entry.id}`,
           );
         } catch (error: any) {
-          console.error(`❌ Failed to convert: ${entry.title}`, error.message);
-          failedConversions.push(entry.title);
+          console.error(
+            `❌ Failed to convert: ${entry.title || entry.id}`,
+            error.message,
+          );
+          failedConversions.push(entry.title || entry.id);
         }
       }
 
