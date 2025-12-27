@@ -1,5 +1,6 @@
-import ytdl from "@distube/ytdl-core";
-import ytpl from "ytpl";
+import YTDlpWrapModule from "yt-dlp-wrap";
+// Handle both ESM and CommonJS exports
+const YTDlpWrap = (YTDlpWrapModule as any).default || YTDlpWrapModule;
 import ffmpeg from "fluent-ffmpeg";
 import archiver from "archiver";
 import { v4 as uuidv4 } from "uuid";
@@ -17,21 +18,29 @@ import {
 
 class ConversionService {
   private conversions = new Map<string, ConversionData>();
+  private ytDlp: any;
+
+  constructor() {
+    // Use yt-dlp.exe from project root
+    const binaryPath = path.join(process.cwd(), "yt-dlp.exe");
+    this.ytDlp = new YTDlpWrap(binaryPath);
+  }
 
   async startConversion(
     url: string,
     bitrate: BitRateOptions = 128,
   ): Promise<{ conversionId: string; title: string }> {
-    const info = await ytdl.getInfo(url);
+    // Get video info using yt-dlp
+    const info = await this.ytDlp.getVideoInfo(url);
     const conversionId = uuidv4();
 
-    const title = sanitizeFilename(info.videoDetails.title);
+    const title = sanitizeFilename(info.title);
     const filename = `${title}_${conversionId}.mp3`;
     const outputPath = path.join(config.downloadsDir, filename);
 
     this.conversions.set(conversionId, {
       status: "processing",
-      title: info.videoDetails.title,
+      title: info.title,
       stripedFileName: title,
       filename,
       progress: 0,
@@ -44,7 +53,7 @@ class ConversionService {
 
     return {
       conversionId,
-      title: info.videoDetails.title,
+      title: info.title,
     };
   }
 
@@ -52,31 +61,34 @@ class ConversionService {
     playlistUrl: string,
     bitrate: BitRateOptions = 128,
   ): Promise<{ conversionId: string; title: string; totalTracks: number }> {
-    const playlist = await ytpl(playlistUrl);
+    // Get playlist info using yt-dlp
+    const playlistInfo = await this.ytDlp.getVideoInfo(playlistUrl);
     const conversionId = uuidv4();
 
-    const title = sanitizeFilename(playlist.title);
+    const title = sanitizeFilename(playlistInfo.title || "playlist");
     const filename = `${title}_${conversionId}.zip`;
+
+    const totalTracks = playlistInfo.entries?.length || 0;
 
     this.conversions.set(conversionId, {
       status: "processing",
-      title: playlist.title,
+      title: playlistInfo.title || "Playlist",
       filename,
       stripedFileName: title,
       progress: 0,
       createdAt: new Date(),
       isPlaylist: true,
-      totalTracks: playlist.items.length,
+      totalTracks,
       processedTracks: 0,
     });
 
     // Start playlist conversion asynchronously
-    this.convertPlaylist(playlist, conversionId, bitrate);
+    this.convertPlaylist(playlistInfo, conversionId, bitrate);
 
     return {
       conversionId,
-      title: playlist.title,
-      totalTracks: playlist.items.length,
+      title: playlistInfo.title || "Playlist",
+      totalTracks,
     };
   }
 
@@ -142,13 +154,22 @@ class ConversionService {
     bitrate: BitRateOptions,
   ): Promise<void> {
     try {
-      const stream = ytdl(url, {
-        filter: "audioonly",
-        quality: "highestaudio",
-      });
+      // Use yt-dlp to download audio directly
+      const tempAudioPath = outputPath.replace(".mp3", ".temp.webm");
 
+      await this.ytDlp.execPromise([
+        url,
+        "-f",
+        "bestaudio",
+        "-o",
+        tempAudioPath,
+        "--no-warnings",
+        "--no-playlist",
+      ]);
+
+      // Convert to MP3 with ffmpeg
       await new Promise<void>((resolve, reject) => {
-        ffmpeg(stream)
+        ffmpeg(tempAudioPath)
           .audioBitrate(bitrate)
           .format("mp3")
           .on("progress", (progress) => {
@@ -158,7 +179,10 @@ class ConversionService {
               this.conversions.set(conversionId, conversion);
             }
           })
-          .on("end", () => {
+          .on("end", async () => {
+            // Clean up temp file
+            await deleteFile(tempAudioPath);
+
             const conversion = this.conversions.get(conversionId);
             if (conversion) {
               conversion.status = "completed";
@@ -169,7 +193,9 @@ class ConversionService {
             console.log(`✅ Conversion completed: ${conversionId}`);
             resolve();
           })
-          .on("error", (err) => {
+          .on("error", async (err) => {
+            await deleteFile(tempAudioPath);
+
             const conversion = this.conversions.get(conversionId);
             if (conversion) {
               conversion.status = "failed";
@@ -193,7 +219,7 @@ class ConversionService {
   }
 
   private async convertPlaylist(
-    playlist: any,
+    playlistInfo: any,
     conversionId: string,
     bitrate: BitRateOptions,
   ): Promise<void> {
@@ -209,20 +235,21 @@ class ConversionService {
         fs.mkdirSync(tempDir, { recursive: true });
       }
 
-      const totalVideos = playlist.items.length;
+      const entries = playlistInfo.entries || [];
+      const totalVideos = entries.length;
       let processedCount = 0;
       const failedConversions: string[] = [];
 
       // Process each video in the playlist
-      for (const item of playlist.items) {
+      for (const entry of entries) {
         try {
-          const videoTitle = sanitizeFilename(item.title);
+          const videoTitle = sanitizeFilename(entry.title);
           const videoFilename = `${videoTitle}.mp3`;
           const videoPath = path.join(tempDir, videoFilename);
 
           // Convert individual video
           await this.convertSingleVideoToFile(
-            item.shortUrl,
+            entry.url || entry.webpage_url,
             videoPath,
             bitrate,
           );
@@ -240,11 +267,11 @@ class ConversionService {
           }
 
           console.log(
-            `✅ Processed ${processedCount}/${totalVideos}: ${item.title}`,
+            `✅ Processed ${processedCount}/${totalVideos}: ${entry.title}`,
           );
         } catch (error: any) {
-          console.error(`❌ Failed to convert: ${item.title}`, error.message);
-          failedConversions.push(item.title);
+          console.error(`❌ Failed to convert: ${entry.title}`, error.message);
+          failedConversions.push(entry.title);
         }
       }
 
@@ -287,7 +314,6 @@ class ConversionService {
     }
   }
 
-  // NEW METHOD: Handle Spotify playlist conversion
   private async convertSpotifyPlaylist(
     playlistInfo: SpotifyPlaylist,
     conversionId: string,
@@ -396,19 +422,36 @@ class ConversionService {
     outputPath: string,
     bitrate: BitRateOptions,
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const stream = ytdl(url, {
-        filter: "audioonly",
-        quality: "highestaudio",
+    const tempAudioPath = outputPath.replace(".mp3", ".temp.webm");
+
+    try {
+      // Download with yt-dlp
+      await this.ytDlp.execPromise([
+        url,
+        "-f",
+        "bestaudio",
+        "-o",
+        tempAudioPath,
+        "--no-warnings",
+        "--no-playlist",
+      ]);
+
+      // Convert to MP3
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(tempAudioPath)
+          .audioBitrate(bitrate)
+          .format("mp3")
+          .on("end", () => resolve())
+          .on("error", (err) => reject(err))
+          .save(outputPath);
       });
 
-      ffmpeg(stream)
-        .audioBitrate(bitrate)
-        .format("mp3")
-        .on("end", () => resolve())
-        .on("error", (err) => reject(err))
-        .save(outputPath);
-    });
+      // Clean up temp file
+      await deleteFile(tempAudioPath);
+    } catch (error) {
+      await deleteFile(tempAudioPath);
+      throw error;
+    }
   }
 
   private async createZipFromDirectory(
